@@ -1,0 +1,74 @@
+name: Refresh news and deploy
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 11 * * *"   # 5:00 AM Chicago (CST); 6:00 AM during daylight time
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Refresh news brief
+        if: github.event_name != 'push' && env.ANTHROPIC_API_KEY != ''
+        run: npm run refresh
+
+      - name: Skip note
+        if: github.event_name != 'push' && env.ANTHROPIC_API_KEY == ''
+        run: echo "::warning::ANTHROPIC_API_KEY secret is not set; deploying without refreshing the news."
+
+      - name: Check site
+        run: npm run check
+
+      - name: Commit refreshed brief
+        if: github.event_name != 'push'
+        run: |
+          if git diff --quiet -- js/data/news.js; then
+            echo "news.js unchanged"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+            git add js/data/news.js
+            git commit -m "Refresh news brief"
+            git push
+          fi
+
+      - name: Stage site files
+        run: |
+          mkdir _site
+          cp -r index.html manifest.webmanifest sw.js css js icons _site/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

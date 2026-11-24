@@ -1,0 +1,23 @@
+{
+  "timezone": "America/Chicago",
+  "model": "claude-sonnet-5-5",
+  "maxItemsPerFeed": 12,
+  "maxAgeHours": 36,
+  "minFeeds": 4,
+  "stories": { "US": 3, "W": 3 },
+  "feeds": [
+    { "name": "BBC News", "url": "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml", "lean": "center", "section": "US", "enabled": true },
+    { "name": "BBC News", "url": "https://feeds.bbci.co.uk/news/world/rss.xml", "lean": "center", "section": "W", "enabled": true },
+    { "name": "NPR", "url": "https://feeds.npr.org/1001/rss.xml", "lean": "center-left", "section": "US", "enabled": true },
+    { "name": "PBS NewsHour", "url": "https://www.pbs.org/newshour/feeds/rss/headlines", "lean": "center", "section": "US", "enabled": true },
+    { "name": "The Guardian", "url": "https://www.theguardian.com/us-news/rss", "lean": "center-left", "section": "US", "enabled": true },
+    { "name": "The Guardian", "url": "https://www.theguardian.com/world/rss", "lean": "center-left", "section": "W", "enabled": true },
+    { "name": "Al Jazeera", "url": "https://www.aljazeera.com/xml/rss/all.xml", "lean": "varies", "section": "W", "enabled": true },
+    { "name": "Fox News", "url": "https://moxie.foxnews.com/google-publisher/latest.xml", "lean": "right", "section": "US", "enabled": true },
+    { "name": "The Hill", "url": "https://thehill.com/feed/", "lean": "center", "section": "US", "enabled": true },
+    { "name": "New York Post", "url": "https://nypost.com/news/feed/", "lean": "right", "section": "US", "enabled": true },
+    { "name": "Wall Street Journal", "url": "https://feeds.content.dowjones.io/public/rss/RSSWorldNews", "lean": "center-right", "section": "W", "enabled": true },
+    { "name": "Reuters", "url": "https://news.google.com/rss/search?q=site:reuters.com+when:1d&hl=en-US&gl=US&ceid=US:en", "lean": "center", "section": "W", "enabled": false },
+    { "name": "Associated Press", "url": "https://news.google.com/rss/search?q=site:apnews.com+when:1d&hl=en-US&gl=US&ceid=US:en", "lean": "center", "section": "US", "enabled": false }
+  ]
+}
