@@ -20,6 +20,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
+      # provider "claude-code" (scripts/news-sources.json) uses the subscription token;
+      # provider "api" uses the API key. Only the one in use needs to be set.
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v4
@@ -28,13 +31,17 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install Claude Code
+        if: github.event_name != 'push' && env.CLAUDE_CODE_OAUTH_TOKEN != ''
+        run: npm install -g @anthropic-ai/claude-code
+
       - name: Refresh news brief
-        if: github.event_name != 'push' && env.ANTHROPIC_API_KEY != ''
+        if: github.event_name != 'push' && (env.CLAUDE_CODE_OAUTH_TOKEN != '' || env.ANTHROPIC_API_KEY != '')
         run: npm run refresh
 
       - name: Skip note
-        if: github.event_name != 'push' && env.ANTHROPIC_API_KEY == ''
-        run: echo "::warning::ANTHROPIC_API_KEY secret is not set; deploying without refreshing the news."
+        if: github.event_name != 'push' && env.CLAUDE_CODE_OAUTH_TOKEN == '' && env.ANTHROPIC_API_KEY == ''
+        run: echo "::warning::No CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY secret; deploying without refreshing the news."
 
       - name: Check site
         run: npm run check

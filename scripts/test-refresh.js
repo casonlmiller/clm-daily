@@ -66,4 +66,14 @@ t("prompt lists numbered items with lean", () => {
   const p = R.buildPrompt([{ feed: { name: "NPR", lean: "center-left", section: "US" }, items: [{ title: "T", summary: "S" }] }], { stories: { US: 3, W: 3 } }, "Monday, Nov 23");
   assert.ok(p.includes("## NPR (lean: center-left") && p.includes("[1] T :: S"));
 });
+t("cli output: structured_output, text fallback, errors", () => {
+  const brief = { also: [], items: [] };
+  assert.deepEqual(R.parseCliOutput(JSON.stringify({ type: "result", subtype: "success", is_error: false, structured_output: brief })), brief);
+  assert.deepEqual(R.parseCliOutput(JSON.stringify({ subtype: "success", result: "Here: " + JSON.stringify(brief) })), brief);
+  assert.throws(() => R.parseCliOutput(JSON.stringify({ subtype: "success", is_error: true, result: "Invalid API key" })), /Invalid API key/);
+  assert.throws(() => R.parseCliOutput("not json"), /non-JSON/);
+});
+t("cli system prompt drops the tool-call line", () => {
+  assert.ok(!R.SYSTEM_CLI.includes("submit_brief") && R.SYSTEM_CLI.includes("JSON matching the given schema"));
+});
 console.log(`\n${n} tests passed`);

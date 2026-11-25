@@ -28,13 +28,13 @@ Host the folder anywhere that serves over HTTPS (GitHub Pages is free), open the
 Progress, streaks, groceries and settings are stored in the browser on each device. Use **Settings > Backup and restore** to export them. Phone and computer do not sync yet.
 
 ## Refresh the news
-**Automatic:** a GitHub Action (`.github/workflows/site.yml`) runs every morning. It reads RSS feeds listed in `scripts/news-sources.json`, asks the Claude API to write the brief, commits `js/data/news.js`, and redeploys the site. It needs the repo secret `ANTHROPIC_API_KEY`. You can also run it from the repo's Actions tab ("Run workflow").
+**Automatic:** a GitHub Action (`.github/workflows/site.yml`) runs every morning. It reads RSS feeds listed in `scripts/news-sources.json`, asks Claude to write the brief, commits `js/data/news.js`, and redeploys the site. By default it runs the Claude Code CLI signed in with a Claude subscription, using the repo secret `CLAUDE_CODE_OAUTH_TOKEN` (make one with `claude setup-token`), so it needs no API credits. To use the paid Claude API instead, set `"provider": "api"` in `scripts/news-sources.json` and add the secret `ANTHROPIC_API_KEY`. You can also run it from the repo's Actions tab ("Run workflow").
 
 **Locally:**
 ```
 npm run feeds        # check which feeds load (no API key needed)
 npm run refresh:dry  # fetch feeds and build the prompt, no API call
-npm run refresh      # real run; needs ANTHROPIC_API_KEY in your environment
+npm run refresh      # real run; needs the claude CLI signed in (or ANTHROPIC_API_KEY with provider "api")
 npm test             # offline tests for the refresh code
 ```
-The API is billed separately from a Claude subscription. Set a monthly spend limit in the Anthropic Console. You can also ask Claude Code to refresh the news by hand, but the next scheduled run overwrites it.
+Subscription runs count toward your normal Claude usage limits. If you switch to the API provider, it is billed separately; set a monthly spend limit in the Anthropic Console. You can also ask Claude Code to refresh the news by hand, but the next scheduled run overwrites it.

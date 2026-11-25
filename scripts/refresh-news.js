@@ -3,8 +3,13 @@
 //   node scripts/refresh-news.js              fetch feeds, call Claude, write the file
 //   node scripts/refresh-news.js --dry-run    fetch feeds, print the prompt size, no API call, no write
 //   node scripts/refresh-news.js --check-feeds  just report which feeds load
-// Needs ANTHROPIC_API_KEY for a real run. Optional: ANTHROPIC_MODEL.
-const fs = require("fs"), path = require("path");
+// Two ways to reach Claude, chosen by "provider" in news-sources.json (or NEWS_PROVIDER):
+//   "claude-code"  runs the Claude Code CLI, signed in with a Claude subscription
+//                  (CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`). No API credits.
+//   "api"          calls the Claude API directly. Needs ANTHROPIC_API_KEY and API credits.
+// Optional: ANTHROPIC_MODEL overrides the model.
+const fs = require("fs"), path = require("path"), os = require("os");
+const { spawnSync } = require("child_process");
 const { parseFeed } = require("./lib/rss");
 const { validateNews } = require("./lib/validate-news");
 
@@ -15,6 +20,8 @@ const UA = "Mozilla/5.0 (compatible; CLMDailyBot/1.0; personal news brief)";
 function loadConfig() {
   const c = JSON.parse(fs.readFileSync(path.join(__dirname, "news-sources.json"), "utf8"));
   if (process.env.ANTHROPIC_MODEL) c.model = process.env.ANTHROPIC_MODEL;
+  if (process.env.NEWS_PROVIDER) c.provider = process.env.NEWS_PROVIDER;
+  c.provider = c.provider || "api";
   return c;
 }
 
@@ -135,6 +142,37 @@ async function callClaude(prompt, cfg, apiKey) {
   throw new Error("Claude API failed: " + last);
 }
 
+// The CLI has no tools here: the brief comes back as structured output checked against TOOL's schema.
+const SYSTEM_CLI = SYSTEM.replace("Call submit_brief exactly once.", "Reply only with the finished brief as JSON matching the given schema.");
+
+// Reads the CLI's --output-format json result. Prefers structured_output; falls back to JSON in the text.
+function parseCliOutput(stdout) {
+  let j;
+  try { j = JSON.parse(stdout); } catch { throw new Error("Claude Code returned non-JSON output: " + String(stdout).slice(0, 300)); }
+  if (j.is_error || (j.subtype && j.subtype !== "success")) throw new Error("Claude Code failed: " + String(j.result || j.subtype).slice(0, 300));
+  if (j.structured_output && typeof j.structured_output === "object") return j.structured_output;
+  const text = String(j.result || "");
+  const a = text.indexOf("{"), b = text.lastIndexOf("}");
+  if (a < 0 || b <= a) throw new Error("Claude Code returned no brief: " + text.slice(0, 300));
+  return JSON.parse(text.slice(a, b + 1));
+}
+
+function callClaudeCode(prompt, cfg) {
+  const args = ["-p", "--output-format", "json", "--json-schema", JSON.stringify(TOOL.input_schema),
+    "--system-prompt", SYSTEM_CLI, "--model", cfg.model, "--permission-mode", "dontAsk"];
+  let last;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    // Run outside the repo so the project's CLAUDE.md is not loaded into the prompt.
+    const r = spawnSync("claude", args, { input: prompt, cwd: os.tmpdir(), encoding: "utf8", timeout: 5 * 60e3, maxBuffer: 20e6 });
+    if (r.error) throw new Error("Could not run the claude CLI: " + r.error.message);
+    try {
+      if (r.status !== 0 && !r.stdout) throw new Error(`claude exited ${r.status}: ${(r.stderr || "").slice(0, 300)}`);
+      return parseCliOutput(r.stdout);
+    } catch (e) { last = e; console.error(`Attempt ${attempt}: ${e.message}`); }
+  }
+  throw last;
+}
+
 const clip = (s, n) => { s = String(s || "").replace(/\s*—\s*/g, ", ").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s; };
 
 function normalize(raw, { allowedSources, stories, date, label }) {
@@ -183,13 +221,19 @@ async function main() {
   const prompt = buildPrompt(results, cfg, label);
   console.log(`Prompt: ${prompt.length} characters`);
   if (args.includes("--dry-run")) { console.log("Dry run: no API call, nothing written."); return; }
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) { console.error("ANTHROPIC_API_KEY is not set"); process.exit(1); }
-  const raw = await callClaude(prompt, cfg, key);
+  let raw;
+  if (cfg.provider === "claude-code") {
+    if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) console.log("CLAUDE_CODE_OAUTH_TOKEN is not set; using the CLI's existing sign-in");
+    raw = callClaudeCode(prompt, cfg);
+  } else if (cfg.provider === "api") {
+    const key = process.env.ANTHROPIC_API_KEY;
+    if (!key) { console.error("ANTHROPIC_API_KEY is not set"); process.exit(1); }
+    raw = await callClaude(prompt, cfg, key);
+  } else { console.error(`Unknown provider "${cfg.provider}" (use "claude-code" or "api")`); process.exit(1); }
   const N = normalize(raw, { allowedSources: results.filter(r => r.items.length).map(r => r.feed.name), stories: cfg.stories, date, label });
   fs.writeFileSync(OUT, renderFile(N));
-  console.log(`Wrote ${N.items.length} stories for ${N.date} (${cfg.model})`);
+  console.log(`Wrote ${N.items.length} stories for ${N.date} (${cfg.model} via ${cfg.provider})`);
 }
 
 if (require.main === module) main().catch(e => { console.error(e.message); process.exit(1); });
-else module.exports = { localDate, dateLabel, filterItems, buildPrompt, normalize, renderFile, SYSTEM, TOOL };
+else module.exports = { localDate, dateLabel, filterItems, buildPrompt, normalize, renderFile, parseCliOutput, SYSTEM, SYSTEM_CLI, TOOL };

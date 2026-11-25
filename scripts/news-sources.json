@@ -1,5 +1,6 @@
 {
   "timezone": "America/Chicago",
+  "provider": "claude-code",
   "model": "claude-sonnet-5-5",
   "maxItemsPerFeed": 12,
   "maxAgeHours": 36,
