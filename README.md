@@ -8,7 +8,7 @@ A personal daily dashboard that works as an installable web app.
 - **Quote:** a daily quote with background on the person and the idea
 - **Grocery:** a simple shopping list
 - **Stretch:** a toe-touch routine with a timer and a long-term goal
-- **Settings:** theme, accent color, bottom-bar tabs, game mode, backup and restore
+- **Settings:** theme, accent color, bottom-bar tabs, backup and restore
 
 ## Run it locally
 ```

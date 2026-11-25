@@ -13,7 +13,7 @@ const NEWS={
   {
    "r": "US",
    "h": "Trump says he pushed Nvidia to reinstate CEO Jensen Huang; lawmakers demand answers",
-   "w": "Trump took credit for convincing Nvidia's board to bring back Huang, according to BBC News and The Guardian. BBC News reports Nvidia's share price fell 7% as lawmakers sought answers, and The Hill reports lawmakers in both parties promised to investigate the relationship between the two men. The Guardian and PBS NewsHour cite a report that Trump may have profited financially from the stock rise, and Schumer accused Huang of violating export control laws. Acting Attorney General Todd Blanche declined to say whether Huang was investigated, according to Al Jazeera and BBC News.",
+   "w": "Trump took credit for convincing Nvidia's board to bring back Huang, according to BBC News and The Guardian. BBC News reports Nvidia's share price fell 7% as lawmakers sought answers, and The Hill reports lawmakers in both parties promised to investigate the relationship between the two men. The Guardian and PBS NewsHour cite a report that Trump may have profited financially from the stock rise, and Schumer accused Huang of violating export control laws.",
    "y": "The episode raises questions about presidential influence over a major company and about US chip sales to China.",
    "p": "The Guardian (center-left) and PBS NewsHour (center) stress Trump's possible personal financial gain, while The Hill (center) focuses on bipartisan momentum for chip export restrictions. NPR (center-left) includes criticism from workplace culture advocates.",
    "s": [

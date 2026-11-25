@@ -67,7 +67,7 @@ Rules:
 - Use ONLY facts present in the supplied items. Never add details from memory. If the snippets are thin, say less.
 - Pick the stories that matter most to an ordinary reader. Prefer stories covered by several outlets; those get several sources in "s".
 - "h": neutral headline, 90 characters or fewer, no loaded words.
-- "w": what happened, 1 to 3 sentences, attributing claims ("X said", "according to Y"). Do not present one outlet's claim as established fact.
+- "w": what happened, 2 or 3 short sentences, 60 words or fewer. Attribute claims ("X said", "according to Y") but do not name every outlet in the text; the full list goes in "s". Do not present one outlet's claim as established fact. The whole brief should take about 3 minutes to read.
 - "y": why it matters, exactly one sentence, no new facts.
 - "p": fill only when the story is politically contested AND the supplied items show differing framing. Name the outlets and their approximate lean as supplied (for example "Fox News (right) stresses X, while NPR (center-left) stresses Y"). Otherwise use an empty string.
 - If a story rests on one outlet, or a claim is unconfirmed, say so in "w".
@@ -176,6 +176,22 @@ function callClaudeCode(prompt, cfg) {
   throw last;
 }
 
+// Keeps the first max sentences. Does not split after initials or common abbreviations ("U.S.", "Dr.").
+const ABBR = /(?:^|[\s(])(?:[A-Z]\.){1,3}$|\b(?:Mr|Mrs|Ms|Dr|St|Sen|Rep|Gov|Gen|Lt|Col|Sgt|Jr|Sr|Inc|Co|Corp|No|vs|Prof|Mt|Ft)\.$/;
+function capSentences(s, max) {
+  s = String(s || "").trim();
+  const out = [], re = /[.!?]["”’)]?\s+(?=["“‘(]?[A-Z0-9])/g;
+  let start = 0, m;
+  while ((m = re.exec(s))) {
+    if (ABBR.test(s.slice(0, m.index + 1))) continue;
+    out.push(s.slice(start, m.index + m[0].trimEnd().length).trim());
+    start = re.lastIndex;
+    if (out.length === max) return out.join(" ");
+  }
+  out.push(s.slice(start).trim());
+  return out.filter(Boolean).slice(0, max).join(" ");
+}
+
 const clip = (s, n) => { s = String(s || "").replace(/\s*—\s*/g, ", ").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s; };
 
 function normalize(raw, { allowedSources, stories, date, label }) {
@@ -185,7 +201,7 @@ function normalize(raw, { allowedSources, stories, date, label }) {
     if (!["US", "W"].includes(x.r)) continue;
     const s = [...new Set((x.s || []).filter(n => allowed.has(n)))];
     if (!s.length || !x.h || !x.w || !x.y) continue;
-    out.push({ r: x.r, h: clip(x.h, 100), w: clip(x.w, 600), y: clip(x.y, 300), p: clip(x.p, 500), s });
+    out.push({ r: x.r, h: clip(x.h, 100), w: clip(capSentences(x.w, 3), 480), y: clip(x.y, 300), p: clip(x.p, 500), s });
   }
   const pick = r => out.filter(i => i.r === r).slice(0, stories[r]);
   const items = [...pick("US"), ...pick("W")];
@@ -239,4 +255,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(e => { console.error(e.message); process.exit(1); });
-else module.exports = { localDate, dateLabel, filterItems, buildPrompt, normalize, renderFile, parseCliOutput, SYSTEM, SYSTEM_CLI, TOOL };
+else module.exports = { localDate, dateLabel, filterItems, buildPrompt, normalize, renderFile, parseCliOutput, capSentences, SYSTEM, SYSTEM_CLI, TOOL };

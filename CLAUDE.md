@@ -29,7 +29,7 @@ Personal daily dashboard (installable PWA) for one user. Tabs: Today, News, Voca
 - **Adding a tab:** add it to `TABS` and `ICONS`, write a `vName()` view, add it to the map in `render()`, and add it to the two valid-tab lists (the initial `tab` check and the `hashchange` handler). Users choose which tabs sit in the bottom bar in Settings; the rest go under More.
 - **Daily rotation:** word, quote and stretch step use `dayNum()`; weekly topics use `weekNum()`. One vocab word per day, followed by a one-question check.
 - **Design:** warm, editorial look by default (serif type, paper tones). Skins are `parchment`, `quest`, `forest`, `arena`, `pixel`. Keep dark mode high-contrast; the owner asked for more contrast there. Keep Today uncluttered: appearance and backup live in Settings.
-- Game mode (XP, levels, streaks, badges) can be switched off in Settings. XP rules are in `xpTotal()`.
+- **XP, levels and badges were removed on purpose** (Nov 2026). Each habit still shows its own day streak. Old saved fields (`lastLevel`, `game`, `wc`) are left in place so older backups still load.
 - **Fantasy football was removed on purpose.** The owner is building it as a separate project. Do not re-add it here.
 
 ## Refreshing the news
@@ -68,4 +68,4 @@ Rules the owner asked for: a quick read of about 3 minutes covering American and
 ## Roadmap
 1. **Automatic refresh (built, needs first-run verification):** feed URLs and the live API call were not testable offline. Run `npm run feeds` and the workflow once, then prune dead feeds.
 2. **Sync across devices:** needs a small backend (Cloudflare or Supabase). Until then, use the backup button in Settings.
-3. **Ideas:** birthday and calendar reminders, more vocab and quotes, XP tuning.
+3. **Ideas:** birthday and calendar reminders, more vocab and quotes.

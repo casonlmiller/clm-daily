@@ -76,4 +76,9 @@ t("cli output: structured_output, text fallback, errors", () => {
 t("cli system prompt drops the tool-call line", () => {
   assert.ok(!R.SYSTEM_CLI.includes("submit_brief") && R.SYSTEM_CLI.includes("JSON matching the given schema"));
 });
+t("story text is capped at three sentences, abbreviations kept", () => {
+  assert.equal(R.capSentences("One here. The U.S. Senate met. Dr. Lee spoke. Four is cut.", 3), "One here. The U.S. Senate met. Dr. Lee spoke.");
+  assert.equal(R.capSentences("Short one.", 3), "Short one.");
+  assert.equal(R.capSentences("He said \"no.\" Then left! Why? Gone.", 3), "He said \"no.\" Then left! Why?");
+});
 console.log(`\n${n} tests passed`);

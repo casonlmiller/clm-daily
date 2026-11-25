@@ -65,3 +65,27 @@ nav svg,.sheet svg{width:22px;height:22px}
 .sheet button{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:14px;padding:12px 4px}
 nav button[aria-current=true]{background:var(--bg);color:var(--ink)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.hero{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.ring{width:64px;height:64px;flex:none}
+.ring circle{fill:none;stroke-width:5}
+.ring .rt{stroke:var(--line)}
+.ring .rf{stroke:var(--accent);stroke-linecap:round}
+.ring text{fill:var(--ink);font:700 14px var(--fb)}
+.lbl{font-family:var(--fb);font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin:26px 2px 0}
+.trow .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.trow .go,.trow .done-tag{flex:none;font-size:15px;font-weight:600}
+.go{color:var(--accent)}
+.chk{width:26px;height:26px;flex:none;border-radius:50%;border:2px solid var(--muted);display:flex;align-items:center;justify-content:center}
+.chk svg{width:16px;height:16px}
+.habit.done{border-color:var(--accent)}
+.habit.done .chk{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.clamp{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.seg button{padding:10px 4px;font-size:15px;min-width:0}
+.story h2{font-size:20px;line-height:1.2;margin:0 0 10px}
+.why{margin:0 0 10px;padding-left:12px;border-left:3px solid var(--accent);font-size:16px}
+.what{margin:0 0 12px}
+.sides{margin:0 0 12px;font-size:15px;border:1px solid var(--line);border-radius:var(--r);padding:6px 12px}
+.sides summary{cursor:pointer;font-weight:600;padding:6px 0}
+.sides p{margin:4px 0 8px}
+.src{font-size:13px;color:var(--muted);margin:0}

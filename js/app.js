@@ -12,33 +12,6 @@ function applyAccent(){
 const SW=["#2f5d46","#8c2f39","#1f4e79","#b45309","#5b3a8c","#374151"];
 const SKINS=[["parchment","Parchment","Classic warm paper"],["quest","Quest","RPG and fantasy"],["forest","Forest","Nature"],["arena","Arena","Sports"],["pixel","Pixel","Retro video game"]];
 function applySkin(){document.documentElement.setAttribute("data-skin",S.skin||"parchment")}
-const TITLES=["Novice","Apprentice","Adept","Scholar","Veteran","Expert","Master","Sage","Grandmaster","Legend"];
-const wordsLearned=()=>Math.max(S.wc||0,Object.keys(S.seen).length);
-function xpTotal(){
- let x=wordsLearned()*10;
- Object.keys(S.tProg).forEach(k=>{const p=k.split(":"),L=TOPICS[+p[1]]&&TOPICS[+p[1]].l[+p[2]];x+=10;if(L&&S.tProg[k].pick===L[4])x+=5});
- return x+Object.keys(S.stretchDone).length*15+Object.keys(S.newsRead).filter(k=>S.newsRead[k]).length*5;
-}
-function lvlInfo(x){let L=1;while(x>=40*L*L)L++;const lo=40*(L-1)*(L-1),hi=40*L*L;return{L,lo,hi,p:Math.round((x-lo)/(hi-lo)*100)}}
-function badges(x){
- const sd=Object.keys(S.stretchDone).length,ls=Object.keys(S.tProg).length,nw=Object.keys(S.newsRead).filter(k=>S.newsRead[k]).length;
- const best=Math.max(streak(S.vocabDone),streak(S.stretchDone),streak(S.topicDone));
- return [["First Step","Earn any XP",x>0],["Wordsmith","Learn 10 words",wordsLearned()>=10],["Scholar","Answer 10 lessons",ls>=10],["Limber","Stretch on 7 days",sd>=7],["On Fire","Reach a 7-day streak",best>=7],["Newshound","Read the news on 7 days",nw>=7]];
-}
-function vGame(){
- if(S.game===false)return "";
- const x=xpTotal(),I=lvlInfo(x),title=TITLES[Math.min(I.L-1,TITLES.length-1)];
- if(S.lastLevel==null||S.lastLevel===undefined){S.lastLevel=I.L;save()}
- const up=I.L>S.lastLevel,bd=badges(x),nb=bd.find(b=>!b[2]);
- const sk=[["Word",streak(S.vocabDone)],["Stretch",streak(S.stretchDone)],["Learning",streak(S.topicDone)],["News",streak(S.newsRead)]];
- return `<div class="card sec">${up?`<div class="row" style="margin:0 0 12px;align-items:center"><span class="done-tag" style="flex:1">Level up! You reached level ${I.L}.</span><button class="alt" data-act="lvlok" style="flex:none">Nice</button></div>`:""}
- <p class="sub" style="margin:0">Level ${I.L}</p><h2 style="font-size:24px;margin:0">${title}</h2>
- <div class="bar" role="progressbar" aria-valuenow="${I.p}" aria-valuemin="0" aria-valuemax="100"><i style="width:${I.p}%"></i></div>
- <p class="sub" style="margin:0">${x-I.lo} of ${I.hi-I.lo} XP to level ${I.L+1}</p>
- <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:12px">${sk.map(s=>`<span class="sub" style="border:1px solid var(--line);padding:4px 10px;border-radius:var(--r)">${s[0]} <b style="color:var(--ink)">${s[1]}d</b></span>`).join("")}</div>
- <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:12px">${bd.map(b=>`<span style="padding:4px 10px;border-radius:var(--r);font-size:14px;background:${b[2]?"var(--accent)":"transparent"};color:${b[2]?"var(--accent-ink)":"var(--muted)"};border:1px solid ${b[2]?"var(--accent)":"var(--line)"}">${esc(b[0])}</span>`).join("")}</div>
- ${nb?`<p class="sub" style="margin:10px 0 0">Next badge: ${esc(nb[0])}. ${esc(nb[1])}.</p>`:""}</div>`;
-}
 const TABS={today:["Today"],news:["News"],vocab:["Vocab"],topic:["Topic"],quote:["Quote"],groceries:["Grocery"],stretch:["Stretch"],settings:["Settings"]};
 const ICONS={
  today:'<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
@@ -52,6 +25,10 @@ const ICONS={
  more:'<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>'
 };
 const icon=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
+const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+function ring(n,t){const c=2*Math.PI*20,f=c*n/t;return `<svg class="ring" viewBox="0 0 48 48" role="img" aria-label="${n} of ${t} habits done"><circle cx="24" cy="24" r="20" class="rt"/>${n?`<circle cx="24" cy="24" r="20" class="rf" stroke-dasharray="${f.toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 24 24)"/>`:""}<text x="24" y="29" text-anchor="middle">${n}/${t}</text></svg>`}
+// Reading time for the news brief at about 220 words a minute.
+function readMin(){const t=NEWS.items.map(i=>[i.h,i.w,i.y,i.p].join(" ")).concat(NEWS.also).join(" ");return Math.max(1,Math.round(t.split(/\s+/).length/220))}
 const pins=()=>(S.pins&&S.pins.length?S.pins:["news","vocab","topic"]).filter(k=>TABS[k]&&k!=="today").slice(0,3);
 function renderNav(){
  const p=["today"].concat(pins()),rest=Object.keys(TABS).filter(k=>!p.includes(k));
@@ -141,10 +118,10 @@ function vTopic(){
 }
 function vNews(){
  const N=NEWS,stale=N.date!==today(),read=!!S.newsRead[today()];
- const card=x=>`<div class="card sec"><h2 style="font-size:20px;line-height:1.2;margin:0 0 8px">${esc(x.h)}</h2><p style="margin:0 0 8px">${esc(x.w)}</p><p class="sub" style="margin:0 0 8px"><b style="color:var(--ink)">Why it matters:</b> ${esc(x.y)}</p>${x.p?`<p class="ex" style="margin:10px 0;font-size:15px;border-color:var(--warm)"><b>Who’s saying what:</b> ${esc(x.p)}</p>`:""}<p class="sub" style="font-size:13px;margin:0">Sources: ${x.s.map(esc).join(", ")}</p></div>`;
- const sec=(t,r)=>`<h2 style="margin:22px 0 0">${t}</h2>${N.items.filter(i=>i.r===r).map(card).join("")}`;
- return `<h1>Daily brief, about 3 minutes</h1>
- ${stale?`<div class="card" style="border-color:var(--warm)"><p style="margin:0"><b>This brief is from ${esc(N.label)}.</b> Ask Claude in chat to refresh it for today.</p></div>`:`<p class="sub">Updated ${esc(N.label)}</p>`}
+ const card=x=>`<article class="card sec story"><h2>${esc(x.h)}</h2><p class="why"><b>Why it matters:</b> ${esc(x.y)}</p><p class="what">${esc(x.w)}</p>${x.p?`<details class="sides"><summary>Who’s saying what</summary><p>${esc(x.p)}</p></details>`:""}<p class="src">Sources: ${x.s.map(esc).join(", ")}</p></article>`;
+ const sec=(t,r)=>`<h2 class="lbl">${t}</h2>${N.items.filter(i=>i.r===r).map(card).join("")}`;
+ return `<h1>Daily brief · about ${readMin()} min</h1>
+ ${stale?`<div class="card" style="border-color:var(--warm)"><p style="margin:0"><b>This brief is from ${esc(N.label)}.</b> Today’s update hasn’t arrived yet. It usually comes early in the morning.</p></div>`:`<p class="sub">Updated ${esc(N.label)}</p>`}
  ${sec("United States","US")}${sec("World","W")}
  <div class="card sec"><h2>Also noted</h2><ul style="margin:8px 0 0;padding-left:18px;list-style:disc">${N.also.map(a=>`<li style="margin:6px 0">${esc(a)}</li>`).join("")}</ul></div>
  <div class="card sec"><h2>Reading tip</h2><p style="margin:6px 0 0">${esc(N.tip)}</p></div>
@@ -165,21 +142,25 @@ function vToday(){
  const v=pickToday(),w=WORDS[v.idx],h=new Date().getHours(),q=QUOTES[dayNum()%QUOTES.length];
  const hi=h<12?"Good morning":h<18?"Good afternoon":"Good evening";
  const date=new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
- const vd=v.stage==="done",sd=!!S.stretchDone[today()];
+ const vd=v.stage==="done",sd=!!S.stretchDone[today()],nd=!!S.newsRead[today()],td=!!S.topicDone[today()];
  const left=S.groceries.filter(x=>!x.d).length;
- const days=Object.keys(S.stretchDone).length,tgt=Math.max(1,+S.goal.target||30);
- const n=(vd?1:0)+(sd?1:0)+(S.topicDone[today()]?1:0)+(S.newsRead[today()]?1:0),td=!!S.topicDone[today()],TT=TOPICS[curTopic()],ld=lessonsDone(weekNum(),curTopic());
- const vs=vd?(v.pick===v.idx?"Done ✓":"Done, review it"):v.stage==="quiz"?"Finish check":"Start";
- return `<h1>${date}</h1><p class="word" style="font-size:34px;margin-bottom:6px">${hi}</p><p class="sub">${n} of 4 daily habits done</p>${vGame()}
- <button class="trow" data-tab="news"><span><b>Daily news</b><br><span class="sub">${NEWS.items.length} stories · about 3 min${NEWS.date!==today()?" · needs refresh":""}</span></span><span class="${S.newsRead[today()]?"done-tag":"sub"}">${S.newsRead[today()]?"Read ✓":"Open"}</span></button>
- <button class="trow" data-tab="quote"><span><b>Quote of the day</b><br><span class="sub">“${esc(q[0])}”<br>${esc(q[1])}</span></span><span class="sub">Open</span></button>
- <button class="trow" data-tab="vocab"><span><b>Today’s word</b><br><span class="sub">${esc(w[0])}</span></span><span class="${vd?"done-tag":"sub"}">${vs}</span></button>
- <button class="trow" data-tab="topic"><span><b>Weekly topic: ${esc(TT.n)}</b><br><span class="sub">${ld} of 5 lessons done this week</span></span><span class="${td?"done-tag":"sub"}">${td?"Done ✓":"Start"}</span></button>
- <button class="trow" data-tab="stretch"><span><b>Toe-touch routine</b><br><span class="sub">${streak(S.stretchDone)} day streak · ${days} of ${tgt} days to goal</span></span><span class="${sd?"done-tag":"sub"}">${sd?"Done ✓":"Start"}</span></button>
- <button class="trow" data-tab="groceries"><span><b>Groceries</b><br><span class="sub">${left} item${left===1?"":"s"} left to buy</span></span><span class="sub">Open</span></button>`;
+ const days=Object.keys(S.stretchDone).length,tgt=Math.max(1,+S.goal.target||30),TT=TOPICS[curTopic()],ld=lessonsDone(weekNum(),curTopic());
+ const n=[nd,vd,td,sd].filter(Boolean).length;
+ const vs=vd?(v.pick===v.idx?"Done":"Review it"):v.stage==="quiz"?"Finish check":"Start";
+ const habit=(k,title,sub,done,label)=>`<button class="trow habit${done?" done":""}" data-tab="${k}"><span class="chk">${done?CHECK:""}</span><span class="tx"><b>${title}</b><span class="sub">${sub}</span></span><span class="${done?"done-tag":"go"}">${label}</span></button>`;
+ const row=(k,title,sub)=>`<button class="trow" data-tab="${k}"><span class="tx"><b>${title}</b><span class="sub clamp">${sub}</span></span><span class="go">Open</span></button>`;
+ return `<h1>${date}</h1><div class="hero"><div><p class="word" style="font-size:34px;margin:0 0 4px">${hi}</p><p class="sub">${n===4?"All four habits done today":n+" of 4 daily habits done"}</p></div>${ring(n,4)}</div>
+ <h2 class="lbl">Daily habits</h2>
+ ${habit("news","Daily news",`${NEWS.items.length} stories · about ${readMin()} min${NEWS.date!==today()?" · not updated yet":""}`,nd,nd?"Read":"Open")}
+ ${habit("vocab","Today’s word",esc(w[0]),vd,vs)}
+ ${habit("topic",`Weekly topic: ${esc(TT.n)}`,`${ld} of 5 lessons done this week`,td,td?"Done":"Start")}
+ ${habit("stretch","Toe-touch routine",`${streak(S.stretchDone)}-day streak · ${days} of ${tgt} days to goal`,sd,sd?"Done":"Start")}
+ <h2 class="lbl">Also today</h2>
+ ${row("quote","Quote of the day",`“${esc(q[0])}” ${esc(q[1])}`)}
+ ${row("groceries","Groceries",`${left} item${left===1?"":"s"} left to buy`)}`;
 }
 function vSettings(){
- return `<h1>Settings</h1><div class="card"><h2>Theme</h2>${SKINS.map(k=>`<button class="alt" data-act="skin" data-s="${k[0]}" aria-pressed="${(S.skin||"parchment")===k[0]}" style="width:100%;text-align:left;margin-top:8px;flex:none"><b>${k[1]}</b> <span style="font-weight:400">· ${k[2]}</span></button>`).join("")}</div><div class="card sec"><h2>Game mode</h2><p class="sub" style="margin:0 0 8px">Show XP, levels, streaks and badges on the Today tab.</p><button class="alt" data-act="game" aria-pressed="${S.game!==false}" style="width:100%;flex:none">${S.game!==false?"On":"Off"}</button></div><div class="card sec"><h2>Bottom bar</h2><p class="sub" style="margin:0">Today is always pinned. Pick up to 3 more tabs for the bar. The rest go under More.</p><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">${Object.keys(TABS).filter(k=>k!=="today").map(k=>`<button class="alt" data-act="pin" data-k="${k}" aria-pressed="${pins().includes(k)}" style="flex:none;padding:8px 12px;min-height:40px">${TABS[k][0]}</button>`).join("")}</div></div><div class="card sec"><h2>Accent color</h2>${vAccent()}</div><div class="card sec"><h2>Backup and restore</h2>${vBackup()}</div>`;
+ return `<h1>Settings</h1><div class="card"><h2>Theme</h2>${SKINS.map(k=>`<button class="alt" data-act="skin" data-s="${k[0]}" aria-pressed="${(S.skin||"parchment")===k[0]}" style="width:100%;text-align:left;margin-top:8px;flex:none"><b>${k[1]}</b> <span style="font-weight:400">· ${k[2]}</span></button>`).join("")}</div><div class="card sec"><h2>Bottom bar</h2><p class="sub" style="margin:0">Today is always pinned. Pick up to 3 more tabs for the bar. The rest go under More.</p><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">${Object.keys(TABS).filter(k=>k!=="today").map(k=>`<button class="alt" data-act="pin" data-k="${k}" aria-pressed="${pins().includes(k)}" style="flex:none;padding:8px 12px;min-height:40px">${TABS[k][0]}</button>`).join("")}</div></div><div class="card sec"><h2>Accent color</h2>${vAccent()}</div><div class="card sec"><h2>Backup and restore</h2>${vBackup()}</div>`;
 }
 function vBackup(){
  return `<div class="sec"><p class="sub">Backup</p><div class="row" style="flex-wrap:wrap;margin-top:8px"><button class="alt" data-act="bdl">Download</button><button class="alt" data-act="bcopy">Copy</button></div>
@@ -206,7 +187,7 @@ function vVocab(){
   body=`<h1>Today’s word</h1><div class="card"><p class="done-tag">${ok?"Correct":"Not quite. Review it below."}</p>${full}</div>${tip}<p class="sub" style="margin-top:12px">Come back tomorrow for a new word.</p>`;
  }
  const note=v.level!==S.level&&v.stage!=="learn"?" (changes tomorrow)":"";
- return body+`<div class="sec"><p class="sub">Word level${note}</p><div class="row" style="margin-top:8px">${[1,2,3].map(n=>`<button class="alt" data-act="lvl" data-lv="${n}" aria-pressed="${S.level===n}">${LNAME[n]}</button>`).join("")}</div></div>
+ return body+`<div class="sec"><p class="sub">Word level${note}</p><div class="seg">${[1,2,3].map(n=>`<button class="alt" data-act="lvl" data-lv="${n}" aria-pressed="${S.level===n}">${LNAME[n]}</button>`).join("")}</div></div>
  <div class="stats"><span><b>${Object.keys(S.seen).length}</b> words learned</span><span><b>${streak(S.vocabDone)}</b> day streak</span></div>`;
 }
 function vGroceries(){
@@ -237,12 +218,11 @@ function vStretch(){
  <div class="row"><button class="alt" id="go" data-act="timer" data-sec="${s[2]}">Start timer</button>
  <button class="main" data-act="sdone">${done?"Done today \u2713":"Mark done"}</button></div></div>
  <div class="row"><button class="alt" data-act="step">Next step</button></div>
- <div class="stats"><span><b>${streak(S.stretchDone)}</b> day streak</span><span><b>${days}</b> days total</span></div>
  <div class="card sec"><h2>Long-term goal</h2>
- <input type="text" id="gt" value="${esc(g.text)}" placeholder="e.g. Touch my toes" aria-label="Goal">
- <div class="two"><span class="sub" style="align-self:center">Target days of stretching</span><input type="number" id="gn" min="1" value="${tgt}" aria-label="Target days"></div>
  <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
- <p class="sub">${days} of ${tgt} days${days>=tgt?" \u2014 goal reached":""}</p></div>`;
+ <p class="sub"><b style="color:var(--ink)">${days} of ${tgt} days</b>${days>=tgt?". Goal reached!":""} · ${streak(S.stretchDone)}-day streak</p>
+ <input type="text" id="gt" value="${esc(g.text)}" placeholder="e.g. Touch my toes" aria-label="Goal" style="margin-top:14px">
+ <div class="two"><span class="sub" style="align-self:center">Target days of stretching</span><input type="number" id="gn" min="1" value="${tgt}" aria-label="Target days"></div></div>`;
 }
 document.addEventListener("click",e=>{
  const t=e.target.closest("button,.scrim");if(!t)return;
@@ -260,8 +240,6 @@ document.addEventListener("click",e=>{
  else if(a==="acc"){S.accent=t.dataset.c;save();applyAccent();render()}
  else if(a==="accreset"){S.accent=null;save();applyAccent();render()}
  else if(a==="skin"){S.skin=t.dataset.s;save();applySkin();render()}
- else if(a==="game"){S.game=(S.game===false);save();render()}
- else if(a==="lvlok"){S.lastLevel=lvlInfo(xpTotal()).L;save();render()}
  else if(a==="more"){moreOpen=!moreOpen;renderNav()}
  else if(a==="pin"){const k=t.dataset.k;let p=pins().slice();if(p.includes(k))p=p.filter(x=>x!==k);else{p.push(k);if(p.length>3)p.shift()}S.pins=p;save();render()}
  else if(a==="bdl")backupDownload();
