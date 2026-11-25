@@ -1,6 +1,6 @@
 // CLM Daily app logic. State lives in localStorage under KEY. Data files load first (see index.html).
 const KEY="daily.v1";
-let S={wc:0,lastLevel:null,skin:"parchment",accent:null,newsRead:{},tProg:{},topicDone:{},tOver:null,tShift:null,favQ:{},seen:{},level:2,recent:[],vday:null,learned:{},vocabDone:{},extra:0,groceries:[],stretchDone:{},goal:{text:"",target:30}};
+let S={wc:0,lastLevel:null,skin:"parchment",accent:null,newsRead:{},tProg:{},topicDone:{},tOver:null,tShift:null,favQ:{},seen:{},level:2,recent:[],vday:null,learned:{},vocabDone:{},extra:0,groceries:[],stretchDone:{},goal:{text:"",target:30},gHist:{}};
 try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
 if(!S.goal.text)S.goal.text="Touch my toes with straight legs";
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
@@ -69,12 +69,38 @@ const dayNum=()=>{const d=new Date();return Math.floor(Date.UTC(d.getFullYear(),
 function streak(map){let d=new Date(),n=0;if(!map[keyOf(d)])d.setDate(d.getDate()-1);while(map[keyOf(d)]){n++;d.setDate(d.getDate()-1)}return n}
 let tab=(location.hash||"#today").slice(1);if(!["today","news","vocab","topic","quote","groceries","stretch","settings"].includes(tab))tab="today";
 let timer=null,stepI=0,selL=null,bmsg="",moreOpen=false;
+let rt=null,rtI=null,rtMsg="",ac=null,wake=null;
+// Short tone. The audio context is unlocked by the tap that starts a timer (iPhone requires that).
+function unlockAudio(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;ac=ac||new C();if(ac.state==="suspended")ac.resume()}catch(e){}}
+function beep(f=880,ms=300){
+ if(navigator.vibrate)try{navigator.vibrate(ms)}catch(e){}
+ if(!ac)return;try{const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.35,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+ms/1000);o.start(t);o.stop(t+ms/1000+.05)}catch(e){}
+}
+async function keepAwake(on){try{if(on&&!wake&&navigator.wakeLock)wake=await navigator.wakeLock.request("screen");else if(!on&&wake){await wake.release();wake=null}}catch(e){}}
+const REST=5;
+function rtStart(){unlockAudio();rt={phase:"work",n:STRETCHES[stepI][2],paused:false};rtMsg="";keepAwake(true);clearInterval(rtI);rtI=setInterval(rtTick,1000);render()}
+function rtStop(msg){clearInterval(rtI);rtI=null;rt=null;keepAwake(false);rtMsg=msg||"";render()}
+function rtTick(){
+ if(!rt||rt.paused)return;
+ rt.n--;
+ const tm=$("#tm");if(tm)tm.textContent=Math.max(rt.n,0)+"s";
+ if(rt.n>0)return;
+ if(rt.phase==="work"){
+  beep(880,350);
+  if(stepI>=STRETCHES.length-1){S.stretchDone[today()]=true;save();stepI=0;return rtStop("Routine complete. Marked done for today.")}
+  stepI++;rt={phase:"rest",n:REST,paused:false};
+ }else{beep(660,180);rt={phase:"work",n:STRETCHES[stepI][2],paused:false}}
+ render();
+}
 function stopTimer(){if(timer){clearInterval(timer);timer=null}}
 const $=s=>document.querySelector(s);
+let shown=null;
 function render(){
  stopTimer();
  renderNav();
- $("#app").innerHTML=({today:vToday,news:vNews,vocab:vVocab,topic:vTopic,quote:vQuote,groceries:vGroceries,stretch:vStretch,settings:vSettings})[tab]();
+ const app=$("#app");
+ if(shown!==tab){app.classList.remove("fade");void app.offsetWidth;app.classList.add("fade");shown=tab}
+ app.innerHTML=({today:vToday,news:vNews,vocab:vVocab,topic:vTopic,quote:vQuote,groceries:vGroceries,stretch:vStretch,settings:vSettings})[tab]();
  if(tab==="groceries")bindGroceries();
 }
 function pickToday(){
@@ -96,6 +122,8 @@ function curTopic(){
  if(S.tShift===null){S.tShift=(7-wk%7)%7;save()}
  return (wk+S.tShift)%7;
 }
+// Same answer order all week for a lesson, so the right answer isn't always in one spot.
+function order(n,seed){const a=[...Array(n).keys()];let x=seed%233280;for(let i=n-1;i>0;i--){x=(x*9301+49297)%233280;const j=Math.floor(x/233280*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 const lessonsDone=(wk,ti)=>[0,1,2,3,4].filter(l=>S.tProg[wk+":"+ti+":"+l]).length;
 function curL(){
  if(selL!==null)return selL;
@@ -106,14 +134,15 @@ function curL(){
 }
 function vTopic(){
  const wk=weekNum(),ti=curTopic(),T=TOPICS[ti],li=curL(),L=T.l[li],P=S.tProg[wk+":"+ti+":"+li];
- const chips=T.l.map((x,i)=>`<button class="alt" data-act="les" data-l="${i}" aria-pressed="${i===li}" style="padding:10px 0">${i+1}${S.tProg[wk+":"+ti+":"+i]?" ✓":""}</button>`).join("");
- const opts=L[3].map((o,i)=>`<button class="opt" data-act="ans" data-o="${i}">${esc(o)}</button>`).join("");
+ const chips=T.l.map((x,i)=>{const d=!!S.tProg[wk+":"+ti+":"+i];return `<button class="alt lz${d?" done":""}" data-act="les" data-l="${i}" aria-pressed="${i===li}" aria-label="Lesson ${i+1}${d?", done":""}">${i+1}${d?CHECK:""}</button>`}).join("");
+ const opts=order(L[3].length,wk*7+ti*5+li).map(i=>`<button class="opt" data-act="ans" data-o="${i}">${esc(L[3][i])}</button>`).join("");
  const res=P?`<p class="done-tag" style="margin:14px 0 4px">${P.pick===L[4]?"Correct":"Not quite"}</p><p style="margin:0">The answer: ${esc(L[3][L[4]])}. ${esc(L[5])}</p>`:opts;
+ const sk=streak(S.topicDone);
  return `<h1>Weekly topic: ${esc(T.n)}</h1>
- <div class="row" style="margin:0 0 14px">${chips}</div>
+ <p class="sub" style="margin:-6px 0 12px">${lessonsDone(wk,ti)} of 5 done this week${sk?` · ${sk}-day streak`:""}</p>
+ <div class="row lessons" style="margin:0 0 14px">${chips}</div>
  <div class="card"><p class="pos" style="margin:0 0 4px">Lesson ${li+1} of 5</p><h2 style="font-size:26px;margin:0 0 10px;line-height:1.15">${esc(L[0])}</h2><p style="margin:0">${esc(L[1])}</p></div>
  <div class="card sec"><h2>Knowledge check</h2><p style="margin:6px 0 0">${esc(L[2])}</p>${res}</div>
- <div class="stats"><span><b>${lessonsDone(wk,ti)}</b> of 5 this week</span><span><b>${streak(S.topicDone)}</b> day streak</span></div>
  <div class="sec"><p class="sub">Switch topic</p><div class="row" style="flex-wrap:wrap;margin-top:8px">${TOPICS.map((x,i)=>`<button class="alt" data-act="topic" data-t="${i}" aria-pressed="${i===ti}" style="flex:none;padding:8px 12px;min-height:40px">${esc(x.n)}</button>`).join("")}</div></div>`;
 }
 function vNews(){
@@ -145,32 +174,35 @@ function vToday(){
  const vd=v.stage==="done",sd=!!S.stretchDone[today()],nd=!!S.newsRead[today()],td=!!S.topicDone[today()];
  const left=S.groceries.filter(x=>!x.d).length;
  const days=Object.keys(S.stretchDone).length,tgt=Math.max(1,+S.goal.target||30),TT=TOPICS[curTopic()],ld=lessonsDone(weekNum(),curTopic());
- const n=[nd,vd,td,sd].filter(Boolean).length;
+ const n=[nd,vd,td,sd].filter(Boolean).length,qs=!!S.favQ[dayNum()%QUOTES.length];
  const vs=vd?(v.pick===v.idx?"Done":"Review it"):v.stage==="quiz"?"Finish check":"Start";
  const habit=(k,title,sub,done,label)=>`<button class="trow habit${done?" done":""}" data-tab="${k}"><span class="chk">${done?CHECK:""}</span><span class="tx"><b>${title}</b><span class="sub">${sub}</span></span><span class="${done?"done-tag":"go"}">${label}</span></button>`;
  const row=(k,title,sub)=>`<button class="trow" data-tab="${k}"><span class="tx"><b>${title}</b><span class="sub clamp">${sub}</span></span><span class="go">Open</span></button>`;
  return `<h1>${date}</h1><div class="hero"><div><p class="word" style="font-size:34px;margin:0 0 4px">${hi}</p><p class="sub">${n===4?"All four habits done today":n+" of 4 daily habits done"}</p></div>${ring(n,4)}</div>
+ ${n===4?`<div class="card note" role="status" style="margin-top:16px"><span class="chk on">${CHECK}</span><span><b>All done for today.</b> Nice work. Come back tomorrow for a new word, lesson and brief.</span></div>`:""}
  <h2 class="lbl">Daily habits</h2>
  ${habit("news","Daily news",`${NEWS.items.length} stories · about ${readMin()} min${NEWS.date!==today()?" · not updated yet":""}`,nd,nd?"Read":"Open")}
  ${habit("vocab","Today’s word",esc(w[0]),vd,vs)}
  ${habit("topic",`Weekly topic: ${esc(TT.n)}`,`${ld} of 5 lessons done this week`,td,td?"Done":"Start")}
  ${habit("stretch","Toe-touch routine",`${streak(S.stretchDone)}-day streak · ${days} of ${tgt} days to goal`,sd,sd?"Done":"Start")}
  <h2 class="lbl">Also today</h2>
- ${row("quote","Quote of the day",`“${esc(q[0])}” ${esc(q[1])}`)}
+ ${row("quote",`Quote of the day${qs?` <span class="tag">Saved</span>`:""}`,`“${esc(q[0])}” ${esc(q[1])}`)}
  ${row("groceries","Groceries",`${left} item${left===1?"":"s"} left to buy`)}`;
 }
 function vSettings(){
  return `<h1>Settings</h1><div class="card"><h2 style="font-size:17px;margin:0">Theme</h2><div class="themes">${SKINS.map(k=>{const on=(S.skin||"parchment")===k[0];return `<button class="pv" data-skin="${k[0]}" data-act="skin" data-s="${k[0]}" aria-pressed="${on}" aria-label="${k[1]} theme: ${k[2]}"><span class="pv-card"><span class="pv-h">Aa</span><span class="pv-dot">${on?CHECK:""}</span></span><span class="pv-name">${k[1]}</span><span class="pv-sub">${k[2]}</span></button>`}).join("")}</div></div><div class="card sec"><h2>Bottom bar</h2><p class="sub" style="margin:0">Today is always pinned. Pick up to 3 more tabs for the bar. The rest go under More.</p><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">${Object.keys(TABS).filter(k=>k!=="today").map(k=>`<button class="alt" data-act="pin" data-k="${k}" aria-pressed="${pins().includes(k)}" style="flex:none;padding:8px 12px;min-height:40px">${TABS[k][0]}</button>`).join("")}</div></div><div class="card sec"><h2>Accent color</h2>${vAccent()}</div><div class="card sec"><h2>Backup and restore</h2>${vBackup()}</div>`;
 }
 function vBackup(){
- return `<div class="sec"><p class="sub">Backup</p><div class="row" style="flex-wrap:wrap;margin-top:8px"><button class="alt" data-act="bdl">Download</button><button class="alt" data-act="bcopy">Copy</button></div>
- <p class="sub" id="bmsg" style="margin:8px 0">${bmsg?esc(bmsg):"Saves your progress, groceries, streaks and settings."}</p>
- <p class="sub" style="margin-top:14px">Restore</p><input type="file" id="bfile" accept=".json,application/json" aria-label="Backup file" style="margin:8px 0;max-width:100%">
- <textarea id="btxt" placeholder="Or paste a backup here" aria-label="Paste backup" style="width:100%;min-height:70px;font:inherit;font-size:14px;padding:10px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink)"></textarea>
- <div class="row"><button class="alt" data-act="brestore">Restore from pasted backup</button></div></div>`;
+ return `<p class="sub" style="margin:0">Saves your progress, groceries, streaks and settings. Use it to move to a new phone.</p>
+ <div class="row" style="margin-top:10px"><button class="alt" data-act="bdl">Download</button><button class="alt" data-act="bcopy">Copy</button></div>
+ <p class="sub" id="bmsg" role="status" style="margin:8px 0 0">${bmsg?esc(bmsg):""}</p>
+ <h2 style="font-size:15px;margin:18px 0 0">Restore</h2>
+ <div class="row" style="margin-top:8px"><label class="btn" for="bfile">Choose backup file</label></div><input type="file" id="bfile" class="vh" accept=".json,application/json">
+ <textarea id="btxt" placeholder="Or paste a backup here" aria-label="Paste backup" style="width:100%;min-height:70px;font:inherit;font-size:14px;padding:10px;margin-top:10px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);color:var(--ink)"></textarea>
+ <div class="row" style="margin-top:8px"><button class="alt" data-act="brestore">Restore from pasted backup</button></div>`;
 }
 function vAccent(){
- return `<div class="sec"><p class="sub">Accent color</p><div class="row" style="flex-wrap:wrap;gap:10px;margin-top:8px;align-items:center">${SW.map(c=>`<button class="sw" data-act="acc" data-c="${c}" aria-label="Accent ${c}" aria-pressed="${S.accent===c}" style="background:${c}"></button>`).join("")}<input type="color" id="accc" value="${S.accent||"#2f5d46"}" aria-label="Custom accent color"><button class="alt" data-act="accreset" style="flex:none">Reset</button></div></div>`;
+ return `<p class="sub" style="margin:0">Used for buttons, checks and highlights.</p><div class="row" style="flex-wrap:wrap;gap:10px;margin-top:10px;align-items:center">${SW.map(c=>`<button class="sw" data-act="acc" data-c="${c}" aria-label="Accent ${c}" aria-pressed="${S.accent===c}" style="background:${c}"></button>`).join("")}<input type="color" id="accc" value="${S.accent||"#2f5d46"}" aria-label="Custom accent color"><button class="alt" data-act="accreset" style="flex:none">Reset</button></div>`;
 }
 function vVocab(){
  const v=pickToday(),w=WORDS[v.idx];
@@ -191,33 +223,52 @@ function vVocab(){
  <div class="stats"><span><b>${Object.keys(S.seen).length}</b> words learned</span><span><b>${streak(S.vocabDone)}</b> day streak</span></div>`;
 }
 function vGroceries(){
- const g=S.groceries,left=g.filter(x=>!x.d).length;
+ const g=S.groceries,left=g.filter(x=>!x.d).length,on=new Set(g.filter(x=>!x.d).map(x=>x.t.toLowerCase()));
+ const sug=Object.values(S.gHist||{}).filter(h=>!on.has(h.t.toLowerCase())).sort((a,b)=>b.n-a.n||b.last-a.last).slice(0,8);
+ const chips=sug.length?`<div class="sec"><p class="sub">Quick add</p><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">${sug.map(h=>`<button class="alt chip" data-act="qadd" data-t="${esc(h.t)}">+ ${esc(h.t)}</button>`).join("")}</div></div>`:"";
  return `<h1>Groceries</h1>
- <div class="row" style="margin-top:0"><input type="text" id="gi" placeholder="Add an item" aria-label="Add an item" autocomplete="off"><button class="main" data-act="add" style="flex:none">Add</button></div>
+ <div class="row" style="margin-top:0"><input type="text" id="gi" placeholder="Add items: milk, eggs…" aria-label="Add items" autocomplete="off" enterkeyhint="done"><button class="main" data-act="add" style="flex:none">Add</button></div>
  ${g.length?`<ul>${g.map(x=>`<li class="g ${x.d?"done":""}"><label><input type="checkbox" data-id="${x.id}" ${x.d?"checked":""}><span>${esc(x.t)}</span></label><button data-del="${x.id}" aria-label="Remove ${esc(x.t)}">\u00d7</button></li>`).join("")}</ul>
- <div class="stats"><span><b>${left}</b> left to buy</span></div>
- ${g.some(x=>x.d)?`<div class="row"><button class="alt" data-act="clear">Clear checked items</button></div>`:""}`
- :`<p class="empty">Your list is empty. Add what you need for this week.</p>`}`;
+ <div class="row" style="align-items:center;justify-content:space-between"><span class="sub"><b style="color:var(--ink)">${left}</b> left to buy</span>${g.some(x=>x.d)?`<button class="alt" data-act="clear" style="flex:none">Clear checked</button>`:""}</div>`
+ :`<p class="empty">Your list is empty.${sug.length?" Tap an item below to add it back.":" Add what you need this week. You can add several at once, like: milk, eggs, bread."}</p>`}
+ ${chips}`;
 }
 function bindGroceries(){
  const el=$("#gi");el.addEventListener("keydown",e=>{if(e.key==="Enter")addG()});
 }
+// Adds one item, or brings back a checked one with the same name. Remembers it for Quick add.
+function addItem(t){
+ t=t.replace(/\s+/g," ").trim();if(!t)return;
+ const k=t.toLowerCase(),ex=S.groceries.find(x=>x.t.toLowerCase()===k);
+ if(ex)ex.d=false;
+ else S.groceries.unshift({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),t,d:false});
+ const h=S.gHist||(S.gHist={});h[k]={t,n:((h[k]&&h[k].n)||0)+1,last:Date.now()};
+}
 function addG(){
- const el=$("#gi"),t=el.value.trim();if(!t)return;
- S.groceries.unshift({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),t,d:false});
+ const el=$("#gi"),v=el.value;if(!v.trim())return;
+ v.split(/[,\n;]/).reverse().forEach(addItem); // reversed so the list keeps the typed order
  save();render();$("#gi").focus();
 }
 function vStretch(){
  const s=STRETCHES[stepI],done=!!S.stretchDone[today()];
  const days=Object.keys(S.stretchDone).length,g=S.goal,tgt=Math.max(1,+g.target||30);
  const pct=Math.min(100,Math.round(days/tgt*100));
- return `<h1>Toe-touch routine: step ${stepI+1} of ${STRETCHES.length}</h1>
- <div class="card"><p class="word" style="font-size:34px">${esc(s[0])}</p>
+ const rest=rt&&rt.phase==="rest";
+ const top=rt
+  ?`<div class="card${rest?" resting":""}"><p class="pos" style="margin:0 0 4px">${rest?"Get ready. Up next:":"Now"}</p><p class="word" style="font-size:34px">${esc(s[0])}</p>
+ <p class="def" style="font-size:18px">${esc(s[1])}</p>
+ <p class="timer" id="tm" aria-live="off">${rt.n}s</p>
+ <div class="row"><button class="alt" data-act="rtpause">${rt.paused?"Resume":"Pause"}</button><button class="alt" data-act="rtskip">Skip</button><button class="alt" data-act="rtstop">Stop</button></div></div>`
+  :`<div class="card"><p class="word" style="font-size:34px">${esc(s[0])}</p>
  <p class="def" style="font-size:18px">${esc(s[1])}</p>
  <p class="timer" id="tm" aria-live="off">${s[2]}s</p>
- <div class="row"><button class="alt" id="go" data-act="timer" data-sec="${s[2]}">Start timer</button>
- <button class="main" data-act="sdone">${done?"Done today \u2713":"Mark done"}</button></div></div>
- <div class="row"><button class="alt" data-act="step">Next step</button></div>
+ <div class="row"><button class="main" data-act="rtstart">${stepI?"Start routine from here":"Start routine"}</button></div>
+ <div class="row" style="margin-top:10px"><button class="alt" id="go" data-act="timer" data-sec="${s[2]}">Timer</button><button class="alt" data-act="step">Next step</button></div></div>
+ <div class="row"><button class="alt" data-act="sdone">${done?"Done today \u2713":"Mark done for today"}</button></div>`;
+ return `<h1>Toe-touch routine: step ${stepI+1} of ${STRETCHES.length}</h1>
+ ${rtMsg?`<div class="card note" role="status" style="margin-bottom:14px"><span class="chk on">${CHECK}</span><span>${esc(rtMsg)}</span></div>`:""}
+ ${top}
+ ${rt?`<p class="sub" style="margin-top:12px">A tone plays at the end of each step, with ${REST} seconds to get ready for the next. On iPhone, turn off silent mode to hear it.</p>`:""}
  <div class="card sec"><h2>Long-term goal</h2>
  <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
  <p class="sub"><b style="color:var(--ink)">${days} of ${tgt} days</b>${days>=tgt?". Goal reached!":""} · ${streak(S.stretchDone)}-day streak</p>
@@ -226,7 +277,7 @@ function vStretch(){
 }
 document.addEventListener("click",e=>{
  const t=e.target.closest("button,.scrim");if(!t)return;
- if(t.dataset.tab){moreOpen=false;tab=t.dataset.tab;history.replaceState(null,"","#"+tab);render();window.scrollTo(0,0);return}
+ if(t.dataset.tab){if(rt&&t.dataset.tab!=="stretch")rtStop();rtMsg="";moreOpen=false;tab=t.dataset.tab;history.replaceState(null,"","#"+tab);render();window.scrollTo(0,0);return}
  if(t.dataset.del){S.groceries=S.groceries.filter(x=>x.id!==t.dataset.del);save();render();return}
  if(t.dataset.pick){const v=S.vday;if(v&&v.stage==="quiz"){v.pick=+t.dataset.pick;v.stage="done";S.recent.push(v.pick===v.idx);S.recent=S.recent.slice(-5);S.wc=Math.max(S.wc||0,Object.keys(S.seen).length)+1;S.seen[WORDS[v.idx][0]]=true;S.vocabDone[today()]=true;save();render()}return}
  const a=t.dataset.act;if(!a)return;
@@ -246,14 +297,19 @@ document.addEventListener("click",e=>{
  else if(a==="bcopy")backupCopy();
  else if(a==="brestore"){const v=document.getElementById("btxt").value.trim();if(v)restoreFrom(v);else setMsg("Paste a backup first.")}
  else if(a==="add")addG();
- else if(a==="step"){stepI=(stepI+1)%STRETCHES.length;render()}
+ else if(a==="qadd"){addItem(t.dataset.t);save();render()}
+ else if(a==="rtstart")rtStart();
+ else if(a==="rtstop")rtStop();
+ else if(a==="rtpause"){if(rt){rt.paused=!rt.paused;render()}}
+ else if(a==="rtskip"){if(rt){rt.n=1;rt.paused=false;rtTick()}}
+ else if(a==="step"){stepI=(stepI+1)%STRETCHES.length;rtMsg="";render()}
  else if(a==="clear"){S.groceries=S.groceries.filter(x=>!x.d);save();render()}
  else if(a==="sdone"){if(S.stretchDone[today()])delete S.stretchDone[today()];else S.stretchDone[today()]=true;save();render()}
  else if(a==="timer"){
   if(timer){stopTimer();t.textContent="Start timer";return}
-  let n=+t.dataset.sec;t.textContent="Stop";
+  unlockAudio();let n=+t.dataset.sec;t.textContent="Stop";
   timer=setInterval(()=>{n--;const tm=$("#tm");if(tm)tm.textContent=Math.max(n,0)+"s";
-   if(n<=0){stopTimer();t.textContent="Start timer";if(navigator.vibrate)try{navigator.vibrate(200)}catch(x){}}},1000);
+   if(n<=0){stopTimer();t.textContent="Timer";beep(880,350)}},1000);
  }
 });
 document.addEventListener("change",e=>{
@@ -264,7 +320,8 @@ document.addEventListener("change",e=>{
  else if(c.id==="gt"){S.goal.text=c.value.trim();save()}
  else if(c.id==="gn"){S.goal.target=Math.max(1,parseInt(c.value)||30);save();render()}
 });
-window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(["today","news","vocab","topic","quote","groceries","stretch","settings"].includes(h)&&h!==tab){tab=h;render()}});
+window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(["today","news","vocab","topic","quote","groceries","stretch","settings"].includes(h)&&h!==tab){if(rt&&h!=="stretch")rtStop();tab=h;render()}});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&rt)keepAwake(true)});
 applySkin();applyAccent();render();
 
 if("serviceWorker" in navigator&&location.protocol.indexOf("http")===0){

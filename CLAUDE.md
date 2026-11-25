@@ -27,6 +27,8 @@ Personal daily dashboard (installable PWA) for one user. Tabs: Today, News, Voca
 - **State** is one object `S` saved to `localStorage` under the key `daily.v1`. The Settings backup is this object as JSON. Never rename or remove existing fields without a migration. New fields get a default in the `S` initializer, which is merged with saved data.
 - **Views** are functions that return HTML strings (`vToday`, `vNews`, `vVocab`, ...). `render()` swaps them into `#app`. Escape all dynamic text with `esc()`. Clicks are handled by one delegated listener at the bottom of `app.js` using `data-act` and `data-tab`.
 - **Adding a tab:** add it to `TABS` and `ICONS`, write a `vName()` view, add it to the map in `render()`, and add it to the two valid-tab lists (the initial `tab` check and the `hashchange` handler). Users choose which tabs sit in the bottom bar in Settings; the rest go under More.
+- **Stretch routine:** "Start routine" runs every step with a tone (Web Audio, unlocked by the tap) and a short rest between steps, keeps the screen awake where supported, and marks the day done at the end. Its timer (`rtI`) survives `render()`; leaving the tab stops it.
+- **Groceries** remember past items in `S.gHist` for Quick add.
 - **Daily rotation:** word, quote and stretch step use `dayNum()`; weekly topics use `weekNum()`. One vocab word per day, followed by a one-question check.
 - **Design:** warm, editorial look by default (serif type, paper tones). Skins are `parchment`, `quest`, `forest`, `arena`, `pixel`. Keep dark mode high-contrast; the owner asked for more contrast there. Keep Today uncluttered: appearance and backup live in Settings.
 - **XP, levels and badges were removed on purpose** (Nov 2026). Each habit still shows its own day streak. Old saved fields (`lastLevel`, `game`, `wc`) are left in place so older backups still load.
@@ -63,7 +65,7 @@ Rules the owner asked for: a quick read of about 3 minutes covering American and
 ## Content
 - **Words:** append to `WORDS` as `[word, partOfSpeech, definition, example]`, then add its index to one of the `LEVELS` lists. The owner wants the word lists tuned to their level; ask which words feel too easy or too hard.
 - **Quotes:** the owner reads James Clear's weekly emails and may paste quotes in. Check attribution before adding (for example, "We are what we repeatedly do" is Will Durant summarizing Aristotle, not Aristotle).
-- **Topics:** seven rotating weekly topics (AI, tech sales, history, leadership, communication, relationships, finance), five short lessons each, each with one multiple-choice check. Finance lessons are general education, not advice.
+- **Topics:** seven rotating weekly topics (AI, tech sales, history, leadership, communication, relationships, finance), five short lessons each, each with one multiple-choice check. Answer order is shuffled per lesson and week (`order()`), so the correct index in the data can be anywhere. Finance lessons are general education, not advice.
 
 ## Roadmap
 1. **Automatic refresh (built, needs first-run verification):** feed URLs and the live API call were not testable offline. Run `npm run feeds` and the workflow once, then prune dead feeds.
