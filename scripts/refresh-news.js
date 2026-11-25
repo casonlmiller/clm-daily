@@ -160,10 +160,13 @@ function parseCliOutput(stdout) {
 function callClaudeCode(prompt, cfg) {
   const args = ["-p", "--output-format", "json", "--json-schema", JSON.stringify(TOOL.input_schema),
     "--system-prompt", SYSTEM_CLI, "--model", cfg.model, "--permission-mode", "dontAsk"];
+  // The CLI prefers ANTHROPIC_API_KEY over the subscription token, so keep the key out of its environment.
+  const env = { ...process.env };
+  delete env.ANTHROPIC_API_KEY;
   let last;
   for (let attempt = 1; attempt <= 2; attempt++) {
     // Run outside the repo so the project's CLAUDE.md is not loaded into the prompt.
-    const r = spawnSync("claude", args, { input: prompt, cwd: os.tmpdir(), encoding: "utf8", timeout: 5 * 60e3, maxBuffer: 20e6 });
+    const r = spawnSync("claude", args, { input: prompt, cwd: os.tmpdir(), env, encoding: "utf8", timeout: 5 * 60e3, maxBuffer: 20e6 });
     if (r.error) throw new Error("Could not run the claude CLI: " + r.error.message);
     try {
       if (r.status !== 0 && !r.stdout) throw new Error(`claude exited ${r.status}: ${(r.stderr || "").slice(0, 300)}`);
